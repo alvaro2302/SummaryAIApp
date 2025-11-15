@@ -1,6 +1,6 @@
 import React from 'react';
 import {Text, View} from 'react-native';
-interface RecordProps {
+export interface RecordProps {
     title: string;
     textRecord: string;
     timeRecord: number;
