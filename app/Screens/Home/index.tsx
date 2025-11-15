@@ -1,6 +1,8 @@
 import React from 'react';
 import {Image, Text, TouchableOpacity, View} from 'react-native';
 import ButtonCustom from '../../../components/ButtonCustom';
+import ListRecord from '../../../components/ListRecord';
+
 const Home = () => {
   return (
     <View>
@@ -21,12 +23,23 @@ const Home = () => {
           />
         </TouchableOpacity>
       </View>
+
       <ButtonCustom
         title="Start Recording"
-        styleButton={{ width: "90%", height: "40%", backgroundColor: '#23F1D8', padding: 10, borderRadius: 10, alignSelf:'center',justifyContent: 'center', alignItems: 'center' }}
+        styleButton={{
+          width: '80%',
+          height: '15%',
+          backgroundColor: '#23F1D8',
+          borderRadius: 10,
+          alignSelf: 'center',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
         styleText={{color: 'black', fontWeight: 'bold', fontSize: 17}}
+        sourceImage={require('../../../assets/icons/microphone.png')}
         onPress={() => alert('Button Pressed')}
       />
+      <ListRecord data={[]} />
     </View>
   );
 };
