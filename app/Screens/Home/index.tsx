@@ -3,9 +3,17 @@ import {Image, Text, TouchableOpacity, View} from 'react-native';
 import ButtonCustom from '../../../components/ButtonCustom';
 import ListRecord from '../../../components/ListRecord';
 
-const Home = () => {
+interface HomeProps {
+  navigation: any;
+}
+
+const Home = (props: HomeProps) => {
+  const {navigation} = props;
+  const navigationToRecord = () => {
+    navigation.navigate('Record');
+  };
   return (
-    <View>
+    <View style={{paddingTop: 75}}>
       <View
         style={{
           display: 'flex',
@@ -37,7 +45,7 @@ const Home = () => {
         }}
         styleText={{color: 'black', fontWeight: 'bold', fontSize: 17}}
         sourceImage={require('../../../assets/icons/microphone.png')}
-        onPress={() => alert('Button Pressed')}
+        onPress={navigationToRecord}
       />
       <ListRecord data={[]} />
     </View>
