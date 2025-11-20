@@ -13,7 +13,7 @@ const AnimationAudio: React.FC<AnimationAudioProps> = ({
   startAudioRecording,
   barCount = 20,
   barWidth = 4,
-  barHeight = 40,
+  barHeight = 75,
   barColor = '#00E5E5',
 }) => {
   // Keep a stable array of Animated.Value instances
@@ -96,7 +96,7 @@ const AnimationAudio: React.FC<AnimationAudioProps> = ({
   }, [startAudioRecording, barCount]);
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', height: barHeight }}>
+    <View style={{flexDirection: 'row', alignItems: 'center', height: barHeight }}>
       {valuesRef.current.map((anim, index) => {
         const scaleY = anim.interpolate({
           inputRange: [0, 1],
