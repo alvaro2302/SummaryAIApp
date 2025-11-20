@@ -3,7 +3,7 @@ import {ASSEMBLY_TOKEN} from '@env';
 const URL = 'https://api.assemblyai.com/v2/upload';
 
 export const uploadFile = async (
-  dataAudio: Uint8Array,
+  dataAudio:  Uint8Array<any>,
 ): Promise<UploadMediaFileResponse> => {
   const response = await fetch(URL, {
     method: 'POST',

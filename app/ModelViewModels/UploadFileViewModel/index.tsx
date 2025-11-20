@@ -3,7 +3,7 @@ import {uploadFile} from '../../services/ServiceUploadFile';
 
 const UploadViewModel = () => {
 const uploadAudioFile = async (
-  dataAudio: Uint8Array,
+  dataAudio: Uint8Array<any>,
 ): Promise<UploadMediaFileResponse> => {
   try {
     const response = await uploadFile(dataAudio);
