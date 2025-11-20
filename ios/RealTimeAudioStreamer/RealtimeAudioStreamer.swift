@@ -19,60 +19,87 @@ class RealtimeAudioStreamer: RCTEventEmitter {
     return ["audioChunk", "recorderError"]
   }
   @objc func startRecording() {
-    guard !isRecording else { return }
-    isRecording = true
+      guard !isRecording else { return }
+      isRecording = true
 
-    let session = AVAudioSession.sharedInstance()
-    do {
-    // Configurar AVAudioSession
-    try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth])
-    try session.setMode(.measurement)
-    try session.setActive(true, options: .notifyOthersOnDeactivation)
+      let session = AVAudioSession.sharedInstance()
+      do {
+          try session.setCategory(.record)
+          try session.setMode(.default)
+          try session.setPreferredSampleRate(16000)
+          try session.setActive(true)
 
-    audioEngine = AVAudioEngine()
-    guard let engine = audioEngine else { return }
-    let inputNode = engine.inputNode
+          audioEngine = AVAudioEngine()
+          guard let engine = audioEngine else { return }
 
-    // Formato de hardware (entrada real)
-    let hwFormat = inputNode.inputFormat(forBus: 0)
+          let input = engine.inputNode
+          let hwFormat = input.inputFormat(forBus: 0)
 
-    // Crear formato deseado: Float32 @ 16kHz mono
-    let desiredSampleRate: Double = 16000
-    let desiredChannels: AVAudioChannelCount = 1
-    guard let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-    sampleRate: desiredSampleRate,
-    channels: desiredChannels,
-    interleaved: false) else {
-      sendError("Failed to create desired AVAudioFormat")
-      return
-    }
+          // Formato deseado: 16kHz mono PCM Float32
+          let desiredFormat = AVAudioFormat(
+              commonFormat: .pcmFormatFloat32,
+              sampleRate: 16000,
+              channels: 1,
+              interleaved: false
+          )!
 
-    // Nodo mezclador/conversor
-    converterNode = AVAudioMixerNode()
-    engine.attach(converterNode!)
+          // Conversión del micrófono al formato deseado
+          let converter = AVAudioConverter(from: hwFormat, to: desiredFormat)!
 
-    // Conectar: input -> converter -> mainMixer
-    engine.connect(inputNode, to: converterNode!, format: hwFormat)
-    engine.connect(converterNode!, to: engine.mainMixerNode, format: desiredFormat)
+          input.installTap(onBus: 0, bufferSize: 1024, format: hwFormat) { [weak self] (buffer, time) in
+              guard let self = self else { return }
 
-    // Tap en converter para obtener float32 a 16kHz
-    converterNode!.installTap(onBus: 0, bufferSize: 1024, format: desiredFormat) { [weak self] (buffer, when) in
-    self?.handleAudioBuffer(buffer: buffer)
-    }
+              let converted = AVAudioPCMBuffer(
+                  pcmFormat: desiredFormat,
+                  frameCapacity: AVAudioFrameCount(desiredFormat.sampleRate / 10)
+              )!
 
-    try engine.start()
+              var error: NSError?
+              let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+                  outStatus.pointee = .haveData
+                  return buffer
+              }
 
-    } catch let err {
-      sendError("Audio start error: \(err.localizedDescription)")
-      isRecording = false
-    }
+              converter.convert(to: converted, error: &error, withInputFrom: inputBlock)
+
+              if let err = error {
+                  self.sendError("Converter error: \(err.localizedDescription)")
+                  return
+              }
+
+              self.sendPCMFloatBuffer(converted)
+          }
+
+          try engine.start()
+
+      } catch {
+          sendError("Audio start error: \(error.localizedDescription)")
+          isRecording = false
+      }
   }
+
   @objc func stopRecording() {
     guard isRecording else { return }
     isRecording = false
     converterNode?.removeTap(onBus: 0)
     audioEngine?.stop()
     audioEngine = nil
+  }
+  private func sendPCMFloatBuffer(_ buffer: AVAudioPCMBuffer) {
+      guard let floatChannelData = buffer.floatChannelData else { return }
+      let frames = Int(buffer.frameLength)
+
+      var out = Data(capacity: frames * 2)
+      let channel = floatChannelData[0]
+
+      for i in 0..<frames {
+          let float = max(-1, min(1, channel[i]))
+          var int16 = Int16(float * Float(Int16.max)).littleEndian
+          withUnsafeBytes(of: &int16) { out.append(contentsOf: $0) }
+      }
+
+      let base64 = out.base64EncodedString()
+      sendEvent(withName: "audioChunk", body: ["data": base64])
   }
   private func handleAudioBuffer(buffer: AVAudioPCMBuffer) {
     guard let floatChannelData = buffer.floatChannelData else { return }
