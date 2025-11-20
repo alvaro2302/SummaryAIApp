@@ -8,6 +8,7 @@ import {
 import {Buffer} from 'buffer';
 import {ASSEMBLY_TOKEN} from '@env';
 import UploadViewModel from '../../app/ModelViewModels/UploadFileViewModel';
+import RNFS from 'react-native-fs';
 const {RealtimeAudioStreamer} = NativeModules;
 const evt = new NativeEventEmitter(RealtimeAudioStreamer);
 
@@ -20,7 +21,7 @@ export default function RecordAudio({
   startAudioRecording,
   setStartAudioRecording,
 }: RecordRealtimeProps) {
-  const { uploadAudioFile } = UploadViewModel();
+  const {uploadAudioFile} = UploadViewModel();
   const [text, setText] = useState('');
   const audioChunksRef = useRef<string[]>([]); // Guardamos base64 de los chunks
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -42,40 +43,103 @@ export default function RecordAudio({
       stopRecording();
     };
   }, []);
+  function pcmToWav(pcmBytes, sampleRate = 16000, numChannels = 1) {
+    const header = new ArrayBuffer(44);
+    const view = new DataView(header);
+
+    const blockAlign = numChannels * 2;
+    const byteRate = sampleRate * blockAlign;
+
+    // ChunkID "RIFF"
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + pcmBytes.length, true); // ChunkSize
+    writeString(view, 8, 'WAVE');
+
+    // Subchunk1ID "fmt "
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true); // Subchunk1Size
+    view.setUint16(20, 1, true); // AudioFormat = PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true); // BitsPerSample
+
+    // Subchunk2ID "data"
+    writeString(view, 36, 'data');
+    view.setUint32(40, pcmBytes.length, true); // Subchunk2Size
+
+    // Result WAV = header + pcmData
+    const wavBuffer = new Uint8Array(44 + pcmBytes.length);
+    wavBuffer.set(new Uint8Array(header), 0);
+    wavBuffer.set(pcmBytes, 44);
+
+    return wavBuffer;
+  }
+
+  function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
   // Función para enviar todos los chunks a AssemblyAI
   const uploadChunks = async () => {
     if (audioChunksRef.current.length === 0) return;
 
     try {
-      // Concatenar todos los base64 en un solo ArrayBuffer
-      let totalLength = 0;
-      const byteArrays: Uint8Array[] = [];
-      for (const b64 of audioChunksRef.current) {
-        const bytes = Buffer.from(b64, 'base64');
-        byteArrays.push(bytes);
-        totalLength += bytes.length;
-      }
+      console.log('🔄 Concatenando chunks PCM...');
 
-      // Concatenar todos los bytes
+      // 1. Concatenar PCM
+      const byteArrays = audioChunksRef.current.map(b64 =>
+        Buffer.from(b64, 'base64'),
+      );
+
+      let totalLength = byteArrays.reduce((acc, arr) => acc + arr.length, 0);
       const finalBytes = new Uint8Array(totalLength);
+
       let offset = 0;
       for (const arr of byteArrays) {
         finalBytes.set(arr, offset);
         offset += arr.length;
       }
 
-      // Enviar a AssemblyAI
-      const response = await uploadAudioFile(finalBytes);
+      // 2. PCM → WAV
+      const wavBytes = pcmToWav(finalBytes);
 
-      console.log('Archivo subido a AssemblyAI:', response.upload_url);
+      console.log('⬆️ Enviando WAV binario a AssemblyAI...');
+      // Comprobar contenido real de PCM
+      let silentCount = 0;
+      let totalSamples = 0;
 
-      // Reset chunks
+      const pcmAll = Buffer.concat(
+        audioChunksRef.current.map(c => Buffer.from(c, 'base64')),
+      );
+
+      for (let i = 0; i < pcmAll.length; i += 2) {
+        const sample = pcmAll.readInt16LE(i);
+        totalSamples++;
+        if (sample === 0) silentCount++;
+      }
+
+      console.log('samples total:', totalSamples);
+      console.log('zeros:', silentCount);
+      console.log('silence ratio:', silentCount / totalSamples);
+      // 3. Upload binario real
+      const response = await fetch('https://api.assemblyai.com/v2/upload', {
+        method: 'POST',
+        headers: {
+          authorization: ASSEMBLY_TOKEN,
+          'transfer-encoding': 'chunked',
+        },
+        body: wavBytes, // <-- AUDIO BINARIO REAL
+      });
+
+      const result = await response.json();
+      console.log('URL AssemblyAI:', result.upload_url);
+
       audioChunksRef.current = [];
-
-      // Opcional: crear transcripción
-      // await createTranscription(response.data.upload_url);
     } catch (err) {
-      console.error('Error subiendo audio a AssemblyAI:', err);
+      console.error('❌ Error subiendo audio:', err);
     }
   };
 
@@ -115,7 +179,9 @@ export default function RecordAudio({
         padding: 10,
         marginTop: 30,
       }}
-      onPress={() => (startAudioRecording ? stopRecording() : startRecording())}>
+      onPress={() =>
+        startAudioRecording ? stopRecording() : startRecording()
+      }>
       <Image
         source={require('../../assets/icons/microphone.png')}
         style={{
