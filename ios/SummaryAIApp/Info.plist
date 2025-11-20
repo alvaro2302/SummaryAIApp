@@ -48,5 +48,8 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>La aplicación necesita acceder al micrófono para grabar audio y transcribirlo en tiempo real.</string>
+
 </dict>
 </plist>
