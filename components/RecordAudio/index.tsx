@@ -125,16 +125,8 @@ export default function RecordAudio({
       console.log('zeros:', silentCount);
       console.log('silence ratio:', silentCount / totalSamples);
       // 3. Upload binario real
-      const response = await fetch('https://api.assemblyai.com/v2/upload', {
-        method: 'POST',
-        headers: {
-          authorization: ASSEMBLY_TOKEN,
-          'transfer-encoding': 'chunked',
-        },
-        body: wavBytes, // <-- AUDIO BINARIO REAL
-      });
-
-      const result = await response.json();
+      const response = await uploadAudioFile(wavBytes);
+      const result = response;
       console.log('URL AssemblyAI:', result.upload_url);
 
       audioChunksRef.current = [];
