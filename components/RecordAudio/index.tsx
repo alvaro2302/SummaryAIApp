@@ -14,12 +14,15 @@ const evt = new NativeEventEmitter(RealtimeAudioStreamer);
 
 interface RecordRealtimeProps {
   startAudioRecording: boolean;
+  stopAudioRecording?: boolean;
   setStartAudioRecording: (value: boolean) => void;
 }
 
 export default function RecordAudio({
   startAudioRecording,
+  stopAudioRecording,
   setStartAudioRecording,
+
 }: RecordRealtimeProps) {
   const {uploadAudioFile} = UploadViewModel();
   const [text, setText] = useState('');
@@ -36,13 +39,14 @@ export default function RecordAudio({
     const errSub = evt.addListener('recorderError', ({error}) => {
       console.log('Recorder error:', error);
     });
-
+    if(stopAudioRecording) {
+      stopRecording();
+    }
     return () => {
       sub.remove();
       errSub.remove();
-      stopRecording();
     };
-  }, []);
+  }, [stopAudioRecording]);
   function pcmToWav(pcmBytes, sampleRate = 16000, numChannels = 1) {
     const header = new ArrayBuffer(44);
     const view = new DataView(header);
@@ -142,7 +146,7 @@ export default function RecordAudio({
     RealtimeAudioStreamer.startRecording();
 
     // Cada 2 minutos subir audio
-    timerRef.current = setInterval(uploadChunks, 2 * 60 * 1000);
+   // timerRef.current = setInterval(uploadChunks, 2 * 60 * 1000);
   };
 
   const stopRecording = () => {
