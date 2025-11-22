@@ -4,12 +4,15 @@ import AnimationAudio from '../../../components/AnimationAudio';
 import ButtonCustom from '../../../components/ButtonCustom';
 import RecordAudio from '../../../components/RecordAudio';
 import {RecordingTimer} from '../../../components/RecordingTimer';
+import {useUploadFileStore} from '../../Store/UploadFile';
+import {Snackbar} from 'react-native-paper';
 const Record = () => {
   const [wordsRealTime, setWordsRealTime] = React.useState<string>('');
   const [startAudioRecording, setStartAudioRecording] =
     React.useState<boolean>(false);
   const [isPaused, setIsPaused] = React.useState<boolean>(false);
-  const [isStopped, setIsStopped] = React.useState<boolean>(true);
+  const [isStopped, setIsStopped] = React.useState<boolean>(false);
+  const {isUploading, setIsUploading} = useUploadFileStore();
   return (
     <View
       style={{
@@ -90,6 +93,19 @@ const Record = () => {
           sourceImage={require('../../../assets/icons/stop.png')}
           onPress={() => setIsStopped(!isStopped)}
         />
+       
+        <Snackbar
+          visible={isUploading}
+          onDismiss={() => setIsUploading(false)}
+          action={{
+            label: 'Undo',
+            onPress: () => {
+              // Do something
+            },
+          }}>
+          Starting record uploaded successfully.
+        </Snackbar>
+  
       </View>
     </View>
   );

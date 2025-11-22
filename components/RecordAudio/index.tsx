@@ -9,6 +9,8 @@ import {Buffer} from 'buffer';
 import {ASSEMBLY_TOKEN} from '@env';
 import UploadViewModel from '../../app/ModelViewModels/UploadFileViewModel';
 import RNFS from 'react-native-fs';
+import TranscriptFileViewModel from '../../app/ModelViewModels/TranscriptFileViewModel';
+import { useUploadFileStore } from '../../app/Store/UploadFile';
 const {RealtimeAudioStreamer} = NativeModules;
 const evt = new NativeEventEmitter(RealtimeAudioStreamer);
 
@@ -25,7 +27,9 @@ export default function RecordAudio({
 
 }: RecordRealtimeProps) {
   const {uploadAudioFile} = UploadViewModel();
+  const {startTranscriptFile} = TranscriptFileViewModel();
   const [text, setText] = useState('');
+  const {setIsUploading} = useUploadFileStore();
   const audioChunksRef = useRef<string[]>([]); // Guardamos base64 de los chunks
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -132,7 +136,9 @@ export default function RecordAudio({
       const response = await uploadAudioFile(wavBytes);
       const result = response;
       console.log('URL AssemblyAI:', result.upload_url);
-
+      const stateTranscript = await startTranscriptFile(result.upload_url);
+      console.log('Transcripción iniciada:', stateTranscript.status);
+      setIsUploading(true);
       audioChunksRef.current = [];
     } catch (err) {
       console.error('❌ Error subiendo audio:', err);
